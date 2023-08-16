@@ -3,6 +3,8 @@ import re
 import pyfastx
 import pandas as pd
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # COMMON FUNCTIONS
 
@@ -75,7 +77,7 @@ SAMPLES = get_samples(SAMPLE_DIR)
 rule all:
     input:
         expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
-        expand(f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}.bam", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg", sample=SAMPLES),
 
 
 rule merge:
@@ -153,14 +155,74 @@ rule minimap2:
     output:
         bam=f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}.bam",
     params:
-        reference=config["TBE_REF"]
+        reference=config["TBE_REF"],
     threads:
         config["THREADS"]
     shell:
         """
         minimap2 -t {threads} -a -x map-ont {params.reference} {input.fastq} | \
-        samtools view -h -F 4 -F 256 | samtools sort -o {output.bam}
+        samtools view -h -F 4 -F 256 -F 2048 | samtools sort -o {output.bam}
         """
+
+rule mpileup:
+    input:
+        bam=rules.minimap2.output.bam
+    output:
+        mpileup=f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_mpileup.tsv",
+    shell:
+        """
+        samtools mpileup -o {output.mpileup} -a {input.bam}
+        """
+
+rule plot_coverage:
+    input:
+        mpileup=rules.mpileup.output.mpileup,
+    params:
+        treshold=config["COVERAGE_THRESHOLD"],
+    output:
+        coverage_plot_svg=f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg",
+        coverage_plot_png=f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.png",
+    run:
+        COVERAGE_THRESHOLD = params.treshold
+        
+        def parse_mpileup(mpileup: str) -> pd.DataFrame:
+            return pd.read_csv(
+                mpileup,
+                sep="\t",
+                header=None,
+                names=["id", "pos", "base", "coverage", "x", "y"],
+            )
+
+        def coverage_plot(mpileup: str, rolling_average: int = 10):
+
+            mpileup_df = parse_mpileup(mpileup).assign(
+                depth=lambda x: x.coverage.rolling(rolling_average).mean()
+            )
+
+            mean_coverage = mpileup_df.coverage.mean()
+            coverage = (
+                sum(1 if x > COVERAGE_THRESHOLD else 0 for x in mpileup_df.coverage)
+                / mpileup_df.shape[0]
+                * 100
+            )
+
+            sns.set_theme()
+            coverage_plot = plt.figure(figsize=(15, 8))
+            sns.lineplot(data=mpileup_df, x="pos", y="depth")
+            zero = plt.axhline(y=0, color="red")
+            zero.set_label("Zero")
+            mean = plt.axhline(y=mean_coverage, color="green")
+            mean.set_label(f"Mean coverage: {mean_coverage: .1f}X")
+            plt.legend(loc="upper right")
+            plt.title(f"Percent bases with coverage above {COVERAGE_THRESHOLD}X: {coverage: .1f}%")
+            plt.suptitle(f"Ref: {mpileup_df.iloc[0].id} | Sample: {wildcards.sample}")
+            #plt.text(0.05, 0.85, f"Sequence identity: {identity: .1f}", bbox={'facecolor': 'oldlace', 'alpha': 0.8, 'pad': 8})
+            plt.close()
+            return coverage_plot
+
+        plot = coverage_plot(input.mpileup)
+        plot.savefig(output.coverage_plot_svg)
+        plot.savefig(output.coverage_plot_png)
 
 
 # If viralFlye

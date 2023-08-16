@@ -15,4 +15,5 @@ TBE_REF: "databases/fasta/TBE.fasta"
 
 # Parameters
 THREADS: 40
+COVERAGE_THRESHOLD: 3
 

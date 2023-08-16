@@ -9,8 +9,6 @@ From: mambaorg/micromamba:0.25.1
     export PATH=$PATH:/opt/conda/bin
 
 %post
-    apt-get update -y
-    apt-get install perl -y
     echo "Installing dependencies"
     micromamba install -y -n base -f /env.yaml
     micromamba clean --all --yes

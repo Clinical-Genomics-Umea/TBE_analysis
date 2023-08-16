@@ -1,6 +1,9 @@
 # singularity images
 singularity/*.sif
 
+# Results from pipeline
+RESULTS/
+.snakemake
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -12,10 +12,7 @@ def get_samples(sample_dir: str) -> list[str]:
 
 def get_fastx(wildcards):
     in_folder = Path(f"{SAMPLE_DIR}/{wildcards.sample}")
-    files = [file for file in Path(in_folder).iterdir() if re.search(r"fq|fastq|fa|fasta|fna", file.name)]
-    print(files)
-    return files
-
+    return [file for file in Path(in_folder).iterdir() if re.search(r"fq|fastq|fa|fasta|fna", file.name)]
 
 # IO
 configfile: "config.yaml"
@@ -37,7 +34,7 @@ rule concatenate_fastq:
     input:
         fastq_files=get_fastx
     output:
-        merged=f"{RESULTS}/{{sample}}/merged_fastq/{{sample}}_merged.fastq.gz"
+        merged=f"{RESULTS}/{{sample}}/MERGED_FASTQ/{{sample}}_merged.fastq.gz"
     shell:
         """
         cat {input.fastq_files} > {output.merged}

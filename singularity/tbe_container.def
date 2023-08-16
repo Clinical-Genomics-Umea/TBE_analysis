@@ -7,11 +7,25 @@ From: mambaorg/micromamba:0.25.1
 %environment
     MAMBA_DOCKERFILE_ACTIVATE=1
     export PATH=$PATH:/opt/conda/bin
+    # for viralFlye
+    # export PATH=$PATH:/viralComplete/bin
+    # export PATH=$PATH:/viralFlye
 
 %post
     echo "Installing dependencies"
+    apt-get update -y
+    apt-get install pigz -y
+    apt-get install git -y
+
+    # viralFlye
+    # git clone --depth 1 https://github.com/ablab/viralComplete.git
+    # git clone --depth 1 https://github.com/Dmitry-Antipov/viralFlye
+
     micromamba install -y -n base -f /env.yaml
     micromamba clean --all --yes
+    
+    # download and build databases
+    # files within singularity can be accessed through /, e.g. /DATABASES/hello.txt
 
 %runscript
     echo "Run with: singularity exec <image.sif> snakemake -c <cores> -s Snakefile"

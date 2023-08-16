@@ -5,3 +5,13 @@ RESULTS: "RESULTS"
 
 # DATABASES
 
+# for viralFlye
+HMM: "databases/Pfam-A.hmm.gz"
+
+BLASTDB_ENVIRON_VARIABLE: "/home/viller/clinical-genomics/pandemic-preparedness/snakemake_pipe/reference/blast_db/"
+BLASTN_DB: "/home/viller/clinical-genomics/pandemic-preparedness/snakemake_pipe/reference/blast_db/ref_viruses_rep_genomes"
+
+
+# Parameters
+THREADS: 40
+

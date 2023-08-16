@@ -5,6 +5,8 @@ singularity/*.sif
 RESULTS/
 .snakemake
 SAMPLES
+notebooks/
+databases/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

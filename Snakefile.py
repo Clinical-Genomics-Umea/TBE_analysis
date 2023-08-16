@@ -75,6 +75,7 @@ SAMPLES = get_samples(SAMPLE_DIR)
 rule all:
     input:
         expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}.bam", sample=SAMPLES),
 
 
 rule merge:
@@ -144,6 +145,22 @@ rule blastn:
         
         os.remove(params.temp_file)
 
+
+
+rule minimap2:
+    input:
+        fastq=rules.porechop.output.trimmed
+    output:
+        bam=f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}.bam",
+    params:
+        reference=config["TBE_REF"]
+    threads:
+        config["THREADS"]
+    shell:
+        """
+        minimap2 -t {threads} -a -x map-ont {params.reference} {input.fastq} | \
+        samtools view -h -F 4 -F 256 | samtools sort -o {output.bam}
+        """
 
 
 # If viralFlye

@@ -17,3 +17,14 @@ singularity exec tbe_image.sif snakemake -c <CORES> -s Snakefile.py
 
 ### 230816
 - Started the repo
+
+- metaFlye does only produce contigs about 3000 in length.
+- tried Raven, but that has a minimum contig of 10k
+- canu doesnt work either...
+
+
+- map the reads to the NC_001672 genome to see how the pcr tiling went 
+
+
+
+

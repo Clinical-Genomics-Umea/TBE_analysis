@@ -1,0 +1,19 @@
+Bootstrap: docker
+From: mambaorg/micromamba:0.25.1
+
+%files
+    ./env.yaml /env.yaml
+
+%environment
+    MAMBA_DOCKERFILE_ACTIVATE=1
+    export PATH=$PATH:/opt/conda/bin
+
+%post
+    apt-get update -y
+    apt-get install perl -y
+    echo "Installing dependencies"
+    micromamba install -y -n base -f /env.yaml
+    micromamba clean --all --yes
+
+%runscript
+    echo "Run with: singularity exec <image.sif> snakemake -c <cores> -s Snakefile"

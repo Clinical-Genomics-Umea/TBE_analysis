@@ -25,12 +25,12 @@ SAMPLES = get_samples(SAMPLE_DIR)
 # RULES
 rule all:
     input:
-        expand(f"{RESULTS}/{{sample}}/MERGED_FASTQ/{{sample}}_merged.fastq.gz", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/PORECHOP/{{sample}}_trimmed.fastq.gz", sample=SAMPLES),
 
 
 # --- CONCAT FASTQ ---
 
-rule concatenate_fastq:
+rule merge:
     input:
         fastq_files=get_fastx
     output:
@@ -41,22 +41,17 @@ rule concatenate_fastq:
         """
 
 # --- PORECHOP ---
-
 rule porechop:
     input:
-        fastq=get_fastx
+        fastq=rules.merge.output.merged
     output:
-        chopped=f"{RESULTS}/{{sample}}/{{sample}}_raw_porechop.fastq.gz",
+        trimmed=f"{RESULTS}/{{sample}}/PORECHOP/{{sample}}_trimmed.fastq.gz",
     log:
         f"{RESULTS}/{{sample}}/logs/log_porechops.txt",
-    message:
-        """
-        Running porechop on {input.fastq}
-        """
     shell:
         """
         porechop \
         -i {input.fastq} \
-        -o {output.chopped} \
+        -o {output.trimmed} \
         | tee {log}
         """

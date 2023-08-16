@@ -4,6 +4,7 @@ singularity/*.sif
 # Results from pipeline
 RESULTS/
 .snakemake
+SAMPLES
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

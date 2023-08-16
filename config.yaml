@@ -1,6 +1,6 @@
 # IO
 # Do not add trailing "/", e.g. "SAMPLE_FOLDER/". Instead, use "SAMPLE_FOLDER" just.
-SAMPLES: "/home/data/överby_data/data/TBE_samples"
+SAMPLES: "SAMPLES"
 RESULTS: "RESULTS"
 
 # DATABASES

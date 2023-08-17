@@ -9,6 +9,7 @@ notebooks/
 databases/
 canu/
 raven/
+source/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

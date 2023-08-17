@@ -6,6 +6,8 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+configfile: "config.yaml"
+
 # COMMON FUNCTIONS
 
 def get_samples(sample_dir: str) -> list[str]:
@@ -31,6 +33,12 @@ def fastx_file_to_df(fastx_file: str) -> pd.DataFrame:
     )
     
     return df
+
+VIRUS_FASTA_FOLDER = config["INDIVIDUAL_VIRUS_FASTA"]
+def get_correct_virus_fasta(name: str):
+    virus_folder = Path(VIRUS_FASTA_FOLDER)
+    return [str(x) for x in virus_folder.iterdir() if name in x.name][0]
+
 
 def revcomp(dna_seq):
     return dna_seq[::-1].translate(str.maketrans("ATGC", "TACG"))
@@ -77,7 +85,6 @@ def run_blastn(contigs: str, db: str, temp_file: str) -> pd.DataFrame:
     return df
 
 # IO
-configfile: "config.yaml"
 
 RESULTS = config["RESULTS"]
 SAMPLE_DIR = config["SAMPLES"]
@@ -90,6 +97,7 @@ rule all:
         expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/RAGTAG/ragtag.scaffold.fasta", sample=SAMPLES),
 
 
 rule merge:
@@ -251,6 +259,26 @@ rule plot_coverage:
         plot = coverage_plot(input.mpileup)
         plot.savefig(output.coverage_plot_svg)
         plot.savefig(output.coverage_plot_png)
+
+
+rule ragtag:
+    input:
+        contigs=rules.flye.output.assembly,
+        blast=rules.blastn.output.blast,
+    output:
+        stitched=f"{RESULTS}/{{sample}}/RAGTAG/ragtag.scaffold.fasta",
+    params:
+        outdir=f"{RESULTS}/{{sample}}/RAGTAG"
+    run:
+        virus_name = (
+            pd.read_csv(input.blast)
+            .sort_values("read_len", ascending=False)
+            .iloc[0].accession
+        )
+        fasta = get_correct_virus_fasta(virus_name)
+
+        shell("ragtag.py scaffold {fasta} {input.contigs} -o {params.outdir}")
+
 
 
 # If viralFlye

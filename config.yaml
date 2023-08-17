@@ -12,6 +12,7 @@ BLASTDB_ENVIRON_VARIABLE: "/home/viller/clinical-genomics/pandemic-preparedness/
 BLASTN_DB: "/home/viller/clinical-genomics/pandemic-preparedness/snakemake_pipe/reference/blast_db/ref_viruses_rep_genomes"
 TBE_REF: "databases/fasta/TBE.fasta"
 LANGAT_REF: "databases/fasta/LANGAT.fasta"
+INDIVIDUAL_VIRUS_FASTA: "/home/viller/clinical-genomics/pandemic-preparedness/snakemake_pipe/reference/virus_fasta/splitted_into_individual_fasta"
 
 
 # Parameters

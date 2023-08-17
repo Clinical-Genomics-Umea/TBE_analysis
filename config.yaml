@@ -15,7 +15,7 @@ LANGAT_REF: "databases/fasta/LANGAT.fasta"
 
 
 # Parameters
-THREADS: 40
+THREADS: 50
 COVERAGE_THRESHOLD: 0
 GENOME_SIZE: 10000
 

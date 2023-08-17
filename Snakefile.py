@@ -61,7 +61,7 @@ def run_blastn(contigs: str, db: str, temp_file: str) -> pd.DataFrame:
     if df.shape[0] == 0:
         return df
     
-    df[["match_name", "accession", "percent_identity", "sequence_len", "align_start", "align_end", "subject_strand"]] = (
+    df[["match_name", "accession", "percent_identity", "subject_len", "align_start", "align_end", "subject_strand"]] = (
        df.matches.str.split("\t", expand=True).loc[:, 0:6]
     )
     df = ( 
@@ -136,6 +136,7 @@ rule flye:
         --out-dir {params.outdir} \
         --nano-raw {input.fastq}
         """
+        #--asm-coverage 50 \
 
 rule wrangle_flye:
     input:

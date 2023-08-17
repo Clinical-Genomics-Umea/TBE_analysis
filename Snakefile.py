@@ -32,6 +32,9 @@ def fastx_file_to_df(fastx_file: str) -> pd.DataFrame:
     
     return df
 
+def revcomp(dna_seq):
+    return dna_seq[::-1].translate(str.maketrans("ATGC", "TACG"))
+
 
 def run_blastn(contigs: str, db: str, temp_file: str) -> pd.DataFrame:
     # In order for blastn to find the files
@@ -48,7 +51,7 @@ def run_blastn(contigs: str, db: str, temp_file: str) -> pd.DataFrame:
             print(contig.sequence, file=f)
         command = [
             "blastn", "-query", temp_file, "-db", db, "-max_target_seqs", "1",
-            "-outfmt", "6 stitle sacc pident slen"
+            "-outfmt", "6 stitle sacc pident slen sstart send sstrand"
         ]
         
         match = subprocess.check_output(command, universal_newlines=True).strip()
@@ -58,11 +61,19 @@ def run_blastn(contigs: str, db: str, temp_file: str) -> pd.DataFrame:
     if df.shape[0] == 0:
         return df
     
-    df[["match_name", "accession", "percent_identity", "sequence_len"]] = (
-        df.matches.str.split("\t", expand=True).loc[:, :3]
+    df[["match_name", "accession", "percent_identity", "sequence_len", "align_start", "align_end", "subject_strand"]] = (
+       df.matches.str.split("\t", expand=True).loc[:, 0:6]
     )
-    df = df.assign(sequence_len=lambda x: [y[0] for y in x.sequence_len.str.split("\n")])
-    
+    df = ( 
+        df
+        .assign(subject_strand=lambda x: [y[0] for y in x.subject_strand.str.split("\n")])
+        .assign(sequence=lambda x: [y.sequence if y.subject_strand == "plus" else revcomp(y.sequence) for y in x.itertuples()])
+        .assign(align_start_temp=lambda x: x.align_start)
+        .assign(align_start=lambda x: [y.align_start if y.subject_strand == "plus" else y.align_end for y in x.itertuples()])
+        .assign(align_end=lambda x: [y.align_end if y.subject_strand == "plus" else y.align_start_temp for y in x.itertuples()])
+        .drop(columns="align_start_temp")
+        .sort_values("align_start")
+    )
     return df
 
 # IO
@@ -78,6 +89,7 @@ rule all:
     input:
         expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa", sample=SAMPLES),
 
 
 rule merge:
@@ -110,6 +122,7 @@ rule flye:
         fastq=rules.porechop.output.trimmed
     params:
         outdir=f"{RESULTS}/{{sample}}/FLYE",
+        genome_size=config["GENOME_SIZE"]
     output:
         assembly=f"{RESULTS}/{{sample}}/FLYE/assembly.fasta",
     threads:
@@ -119,6 +132,7 @@ rule flye:
         flye \
         --meta \
         --threads {threads} \
+        --genome-size {params.genome_size} \
         --out-dir {params.outdir} \
         --nano-raw {input.fastq}
         """
@@ -155,7 +169,7 @@ rule minimap2:
     output:
         bam=f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}.bam",
     params:
-        reference=config["TBE_REF"],
+        reference=config["LANGAT_REF"],
     threads:
         config["THREADS"]
     shell:
@@ -173,6 +187,19 @@ rule mpileup:
         """
         samtools mpileup -o {output.mpileup} -a {input.bam}
         """
+
+rule consensus:
+    input:
+        mpileup=rules.mpileup.output.mpileup
+    output:
+        consensus=f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa",
+    shell:
+        """
+        cat {input.mpileup} | ivar consensus -t .7 -m 10 -p {wildcards.sample}_consensus
+        mv {wildcards.sample}_consensus.fa {output.consensus}
+        rm {wildcards.sample}_consensus.qual.txt
+        """
+
 
 rule plot_coverage:
     input:

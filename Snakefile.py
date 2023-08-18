@@ -100,6 +100,7 @@ rule all:
         expand(f"{RESULTS}/{{sample}}/RAGTAG/ragtag.scaffold.fasta", sample=SAMPLES),
 
 
+
 rule merge:
     input:
         fastq_files=get_fastx
@@ -109,6 +110,7 @@ rule merge:
         """
         cat {input.fastq_files} > {output.merged}
         """
+
 
 rule porechop:
     input:
@@ -172,20 +174,29 @@ rule blastn:
 
 
 
+# Heuristic: Based on the longest contig? Based on the monst prevalent contigs?
 rule minimap2:
     input:
-        fastq=rules.porechop.output.trimmed
+        fastq=rules.porechop.output.trimmed,
+        blast=rules.blastn.output.blast,
     output:
         bam=f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}.bam",
-    params:
-        reference=config["LANGAT_REF"],
     threads:
         config["THREADS"]
-    shell:
-        """
-        minimap2 -t {threads} -a -x map-ont {params.reference} {input.fastq} | \
-        samtools view -h -F 4 -F 256 -F 2048 | samtools sort -o {output.bam}
-        """
+    run:
+        virus_name = (
+            pd.read_csv(input.blast)
+            .sort_values("read_len", ascending=False)
+            .iloc[0].accession
+        )
+        fasta = get_correct_virus_fasta(virus_name)
+
+        shell(
+            """
+            minimap2 -t {threads} -a -x map-ont {fasta} {input.fastq} | \
+            samtools view -h -F 4 -F 256 -F 2048 | samtools sort -o {output.bam}
+            """
+        )
 
 rule mpileup:
     input:

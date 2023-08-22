@@ -93,12 +93,13 @@ SAMPLES = get_samples(SAMPLE_DIR)
 # TODO: Change this to correct and rerun
 LANGAT = config["EBBAS_LANGAT"]
 CHIMERA = config["EBBAS_CHIMERA"]
+# TODO: CHANGE TO CORRECT
 SAMPLE_TO_REF = {
+    "barcode80": LANGAT,
     "barcode81": LANGAT,
-    "barcode81": CHIMERA,
-    "barcode82": CHIMERA,
-    "barcode83": CHIMERA,
-    "barcode84": CHIMERA,
+    "barcode82": LANGAT,
+    "barcode83": LANGAT,
+    "barcode84": LANGAT,
     "barcode85": LANGAT,
     "barcode86": CHIMERA,
     "barcode87": CHIMERA,
@@ -110,6 +111,12 @@ SAMPLE_TO_REF = {
 # -- RULES --- #
 rule all:
     input:
+        # Nanoplot
+        expand(f"{RESULTS}/{{sample}}/NANOPLOT/NanoPlot-report.html", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/RAGTAG/ragtag.scaffold.fasta", sample=SAMPLES),
         # medaka
         expand(f"{RESULTS}/{{sample}}/MEDAKA/consensus.fasta", sample=SAMPLES),
         #corona
@@ -117,12 +124,18 @@ rule all:
         #raven
         expand(f"{RESULTS}/{{sample}}/RAVEN/{{sample}}_assembly.fasta", sample=SAMPLES),
 
-        expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
-        expand(f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg", sample=SAMPLES),
-        expand(f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa", sample=SAMPLES),
-        expand(f"{RESULTS}/{{sample}}/RAGTAG/ragtag.scaffold.fasta", sample=SAMPLES),
 
-
+rule nanoplot:
+    input:
+        fastq_files=get_fastx
+    params:
+        outdir=f"{RESULTS}/{{sample}}/NANOPLOT/"
+    output:
+        report=f"{RESULTS}/{{sample}}/NANOPLOT/NanoPlot-report.html"
+    shell:
+        """
+        NanoPlot --fastq {input.fastq_files} -o {params.outdir}
+        """
 
 rule merge:
     input:

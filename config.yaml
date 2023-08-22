@@ -14,6 +14,9 @@ TBE_REF: "databases/fasta/TBE.fasta"
 LANGAT_REF: "databases/fasta/LANGAT.fasta"
 INDIVIDUAL_VIRUS_FASTA: "/home/viller/clinical-genomics/pandemic-preparedness/snakemake_pipe/reference/virus_fasta/splitted_into_individual_fasta"
 
+EBBAS_LANGAT: "databases/fasta/LANGAT_ebba.fasta"
+EBBAS_CHIMERA: "databases/fasta/CHIMERA_ebba.fasta"
+
 
 # Parameters
 THREADS: 50

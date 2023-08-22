@@ -90,10 +90,28 @@ RESULTS = config["RESULTS"]
 SAMPLE_DIR = config["SAMPLES"]
 SAMPLES = get_samples(SAMPLE_DIR)
 
+# TODO: Change this to correct and rerun
+LANGAT = config["EBBAS_LANGAT"]
+CHIMERA = config["EBBAS_CHIMERA"]
+SAMPLE_TO_REF = {
+    "barcode81": LANGAT,
+    "barcode81": CHIMERA,
+    "barcode82": CHIMERA,
+    "barcode83": CHIMERA,
+    "barcode84": CHIMERA,
+    "barcode85": LANGAT,
+    "barcode86": CHIMERA,
+    "barcode87": CHIMERA,
+    "barcode88": CHIMERA,
+    "barcode89": CHIMERA,
+}
+
 
 # -- RULES --- #
 rule all:
     input:
+        # medaka
+        expand(f"{RESULTS}/{{sample}}/MEDAKA/consensus.fasta", sample=SAMPLES),
         #corona
         expand(f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}_unmapped_to_corona.fastq", sample=SAMPLES),
         #raven
@@ -226,18 +244,22 @@ rule minimap2:
     threads:
         config["THREADS"]
     run:
-        virus_name = (
-            pd.read_csv(input.blast)
-            .sort_values("read_len", ascending=False)
-            .iloc[0].accession
-        )
-        fasta = get_correct_virus_fasta(virus_name)
+        # virus_name = (
+        #     pd.read_csv(input.blast)
+        #     .sort_values("read_len", ascending=False)
+        #     .iloc[0].accession
+        # )
+        # fasta = get_correct_virus_fasta(virus_name)
+        # TODO
+        fasta = SAMPLE_TO_REF[wildcards.sample]
 
         shell(
             """
             minimap2 -t {threads} -a -x map-ont {fasta} {input.fastq} | \
-            samtools view -h -F 4 -F 256 -F 2048 | samtools sort -o {output.bam}
+            samtools view -h -F 4 | samtools sort -o {output.bam}
             """
+            # USE TO BE LIKE BELOW
+            #samtools view -h -F 4 -F 256 -F 2048 | samtools sort -o {output.bam}
         )
 
 rule mpileup:
@@ -323,14 +345,32 @@ rule ragtag:
     params:
         outdir=f"{RESULTS}/{{sample}}/RAGTAG"
     run:
-        virus_name = (
-            pd.read_csv(input.blast)
-            .sort_values("read_len", ascending=False)
-            .iloc[0].accession
-        )
-        fasta = get_correct_virus_fasta(virus_name)
+        # virus_name = (
+        #     pd.read_csv(input.blast)
+        #     .sort_values("read_len", ascending=False)
+        #     .iloc[0].accession
+        # )
+        # fasta = get_correct_virus_fasta(virus_name)
+        # TODO
+        fasta = SAMPLE_TO_REF[wildcards.sample]
 
         shell("ragtag.py scaffold {fasta} {input.contigs} -o {params.outdir}")
+
+rule medaka:
+    input:
+        ref=lambda wc: SAMPLE_TO_REF[wc.sample],
+        fastq=rules.porechop.output.trimmed,
+    params:
+        outdir=f"{RESULTS}/{{sample}}/MEDAKA"
+    output:
+        consensus=f"{RESULTS}/{{sample}}/MEDAKA/consensus.fasta"
+    shell:
+        """
+        medaka_consensus \
+        -i {input.fastq} \
+        -d {input.ref} \
+        -g -o {params.outdir}
+        """
 
 
 

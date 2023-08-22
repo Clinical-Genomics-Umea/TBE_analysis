@@ -7,6 +7,8 @@ From: mambaorg/micromamba:0.25.1
 %environment
     MAMBA_DOCKERFILE_ACTIVATE=1
     export PATH=$PATH:/opt/conda/bin
+    # raven
+    export PATH=$PATH:/raven/build/bin
     # for viralFlye
     # export PATH=$PATH:/viralComplete/bin
     # export PATH=$PATH:/viralFlye
@@ -14,9 +16,18 @@ From: mambaorg/micromamba:0.25.1
 %post
     echo "Installing dependencies"
     apt-get update -y
+    apt-get install cmake -y
+    apt-get install build-essential -y
+    apt-get install zlib1g-dev -y
     apt-get install pigz -y
     apt-get install git -y
 
+    #raven
+    git clone --depth 1 https://github.com/lbcb-sci/raven && cd raven
+    cmake -S ./ -B./build -DRAVEN_BUILD_EXE=1 -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+    cd ..
+    
     # viralFlye
     # git clone --depth 1 https://github.com/ablab/viralComplete.git
     # git clone --depth 1 https://github.com/Dmitry-Antipov/viralFlye

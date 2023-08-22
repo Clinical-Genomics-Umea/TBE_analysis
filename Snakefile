@@ -94,6 +94,11 @@ SAMPLES = get_samples(SAMPLE_DIR)
 # -- RULES --- #
 rule all:
     input:
+        #corona
+        expand(f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}_unmapped_to_corona.fastq", sample=SAMPLES),
+        #raven
+        expand(f"{RESULTS}/{{sample}}/RAVEN/{{sample}}_assembly.fasta", sample=SAMPLES),
+
         expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa", sample=SAMPLES),
@@ -127,9 +132,30 @@ rule porechop:
         > {log} 2>&1
         """
 
+
+rule remove_corona:
+    input:
+        fastq=rules.porechop.output.trimmed,
+    output:
+        fastq=f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}_unmapped_to_corona.fastq",
+    threads:
+        config["THREADS"]
+    run:
+        # corona virus
+        fasta = get_correct_virus_fasta("NC_045512")
+
+        shell(
+            """
+            minimap2 -t {threads} -a -x map-ont {fasta} {input.fastq} | \
+            samtools fastq -f 4 - > {output.fastq}
+            """
+        )
+
+
+
 rule flye:
     input:
-        fastq=rules.porechop.output.trimmed
+        fastq=rules.remove_corona.output.fastq,
     params:
         outdir=f"{RESULTS}/{{sample}}/FLYE",
         genome_size=config["GENOME_SIZE"]
@@ -147,6 +173,22 @@ rule flye:
         --nano-raw {input.fastq}
         """
         #--asm-coverage 50 \
+
+# source/raven/build/bin/raven -u 2000 -t {threads} {input.fastq} > {out}
+rule raven:
+    input:
+        fastq=rules.remove_corona.output.fastq,
+    output:
+        assembly=f"{RESULTS}/{{sample}}/RAVEN/{{sample}}_assembly.fasta",
+    threads:
+        config["THREADS"]
+    shell:
+        """
+        raven \
+        -u 2000 \
+        -t {threads} \
+        {input.fastq} > {output.assembly}
+        """
 
 rule wrangle_flye:
     input:
@@ -177,7 +219,7 @@ rule blastn:
 # Heuristic: Based on the longest contig? Based on the monst prevalent contigs?
 rule minimap2:
     input:
-        fastq=rules.porechop.output.trimmed,
+        fastq=rules.remove_corona.output.fastq,
         blast=rules.blastn.output.blast,
     output:
         bam=f"{RESULTS}/{{sample}}/MINIMAP2/{{sample}}.bam",

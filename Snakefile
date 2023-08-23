@@ -107,6 +107,8 @@ SAMPLE_TO_REF = {
 # -- RULES --- #
 rule all:
     input:
+        # bcftools
+        expand(f"{RESULTS}/{{sample}}/BCFTOOLS/{{sample}}_consensus.fasta", sample=SAMPLES),
         # vcf
         expand(f"{RESULTS}/{{sample}}/MEDAKA/{{sample}}_annotated.vcf", sample=SAMPLES),
         # Nanoplot
@@ -114,7 +116,7 @@ rule all:
 
         expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg", sample=SAMPLES),
-        expand(f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa", sample=SAMPLES),
+        expand(f"{RESULTS}/{{sample}}/IVAR_CONSENSUS/{{sample}}_consensus.fa", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/RAGTAG/ragtag.scaffold.fasta", sample=SAMPLES),
         # medaka
         expand(f"{RESULTS}/{{sample}}/MEDAKA/consensus.fasta", sample=SAMPLES),
@@ -290,7 +292,7 @@ rule consensus:
     input:
         bam=rules.minimap2.output.bam,
     output:
-        consensus=f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa",
+        consensus=f"{RESULTS}/{{sample}}/IVAR_CONSENSUS/{{sample}}_consensus.fa",
     shell:
         """
         samtools mpileup -aa -A -d 0 -Q 0 {input.bam} | ivar consensus -t 0.9 -m 100 -c 1 -p {wildcards.sample}_consensus
@@ -399,12 +401,28 @@ rule medaka_vcf:
         medaka consensus \
         --chunk_len 800 \
         --chunk_ovlp 400 \
+        --model r941_e81_hac_variant_g514 \
         {input.bam} {output.hdf} 
 
-        medaka snp \
-        {input.ref} {output.hdf} {output.vcf}
+        medaka snp {input.ref} {output.hdf} {output.vcf}
 
         medaka tools annotate --pad 25 {output.vcf} {input.ref} {input.bam} {output.annotated_vcf}
+        """
+
+
+rule bcftools_consensus:
+    input:
+        ref=lambda wc: SAMPLE_TO_REF[wc.sample],
+        vcf=rules.medaka_vcf.output.annotated_vcf,
+    output:
+        bgzip=f"{RESULTS}/{{sample}}/BCFTOOLS/{{sample}}_annotated.vcf.gz",
+        consensus=f"{RESULTS}/{{sample}}/BCFTOOLS/{{sample}}_consensus.fasta",
+    shell:
+        """
+        bgzip -c {input.vcf} > {output.bgzip}
+        tabix {output.bgzip} 
+        cat {input.ref} | \
+        bcftools consensus {output.bgzip} > {output.consensus}
         """
 
 # If viralFlye

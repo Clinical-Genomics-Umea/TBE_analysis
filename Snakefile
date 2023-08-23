@@ -100,7 +100,7 @@ SAMPLE_TO_REF = {
     "barcode82": LANGAT,
     "barcode83": LANGAT,
     "barcode84": LANGAT,
-    "barcode85": LANGAT,
+    "barcode85": CHIMERA,
     "barcode86": CHIMERA,
     "barcode87": CHIMERA,
     "barcode88": CHIMERA,
@@ -111,8 +111,11 @@ SAMPLE_TO_REF = {
 # -- RULES --- #
 rule all:
     input:
+        # vcf
+        expand(f"{RESULTS}/{{sample}}/MEDAKA/{{sample}}_annotated.vcf", sample=SAMPLES),
         # Nanoplot
         expand(f"{RESULTS}/{{sample}}/NANOPLOT/NanoPlot-report.html", sample=SAMPLES),
+
         expand(f"{RESULTS}/{{sample}}/BLASTN/{{sample}}_contigs_blastn.csv", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/COVERAGE/{{sample}}_coverage_plot.svg", sample=SAMPLES),
         expand(f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa", sample=SAMPLES),
@@ -270,6 +273,8 @@ rule minimap2:
             """
             minimap2 -t {threads} -a -x map-ont {fasta} {input.fastq} | \
             samtools view -h -F 4 | samtools sort -o {output.bam}
+
+            samtools index {output.bam}
             """
             # USE TO BE LIKE BELOW
             #samtools view -h -F 4 -F 256 -F 2048 | samtools sort -o {output.bam}
@@ -372,7 +377,7 @@ rule ragtag:
 rule medaka:
     input:
         ref=lambda wc: SAMPLE_TO_REF[wc.sample],
-        fastq=rules.porechop.output.trimmed,
+        fastq=rules.remove_corona.output.fastq,
     params:
         outdir=f"{RESULTS}/{{sample}}/MEDAKA"
     output:
@@ -385,7 +390,26 @@ rule medaka:
         -g -o {params.outdir}
         """
 
+rule medaka_vcf:
+    input:
+        ref=lambda wc: SAMPLE_TO_REF[wc.sample],
+        bam=rules.minimap2.output.bam,
+    output:
+        hdf=temp(f"{RESULTS}/{{sample}}/MEDAKA/{{sample}}.hdf"),
+        vcf=f"{RESULTS}/{{sample}}/MEDAKA/{{sample}}.vcf",
+        annotated_vcf=f"{RESULTS}/{{sample}}/MEDAKA/{{sample}}_annotated.vcf",
+    shell:
+        """
+        medaka consensus \
+        --chunk_len 800 \
+        --chunk_ovlp 400 \
+        {input.bam} {output.hdf} 
 
+        medaka variant \
+        {input.ref} {output.hdf} {output.vcf}
+
+        medaka tools annotate --pad 25 {output.vcf} {input.ref} {input.bam} {output.annotated_vcf}
+        """
 
 # If viralFlye
 rule viralFlye:

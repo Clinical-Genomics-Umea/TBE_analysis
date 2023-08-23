@@ -90,21 +90,17 @@ RESULTS = config["RESULTS"]
 SAMPLE_DIR = config["SAMPLES"]
 SAMPLES = get_samples(SAMPLE_DIR)
 
-# TODO: Change this to correct and rerun
 LANGAT = config["EBBAS_LANGAT"]
 CHIMERA = config["EBBAS_CHIMERA"]
-# TODO: CHANGE TO CORRECT
 SAMPLE_TO_REF = {
-    "barcode80": LANGAT,
-    "barcode81": LANGAT,
-    "barcode82": LANGAT,
-    "barcode83": LANGAT,
-    "barcode84": LANGAT,
-    "barcode85": CHIMERA,
-    "barcode86": CHIMERA,
-    "barcode87": CHIMERA,
-    "barcode88": CHIMERA,
-    "barcode89": CHIMERA,
+    "barcode81": LANGAT, #SAMPLE A
+    "barcode82": LANGAT, #SAMPLE B
+    "barcode83": LANGAT, #SAMPLE C
+    "barcode84": LANGAT, #SAMPLE D
+    "barcode85": CHIMERA, #SAMPLE E
+    "barcode86": CHIMERA, #SAMPLE F
+    "barcode87": CHIMERA, #SAMPLE G
+    "barcode88": CHIMERA, #SAMPLE H
 }
 
 
@@ -292,12 +288,12 @@ rule mpileup:
 
 rule consensus:
     input:
-        mpileup=rules.mpileup.output.mpileup
+        bam=rules.minimap2.output.bam,
     output:
         consensus=f"{RESULTS}/{{sample}}/CONSENSUS/{{sample}}_consensus.fa",
     shell:
         """
-        cat {input.mpileup} | ivar consensus -t .7 -m 10 -p {wildcards.sample}_consensus
+        samtools mpileup -aa -A -d 0 -Q 0 {input.bam} | ivar consensus -t 0.9 -m 100 -c 1 -p {wildcards.sample}_consensus
         mv {wildcards.sample}_consensus.fa {output.consensus}
         rm {wildcards.sample}_consensus.qual.txt
         """
@@ -405,7 +401,7 @@ rule medaka_vcf:
         --chunk_ovlp 400 \
         {input.bam} {output.hdf} 
 
-        medaka variant \
+        medaka snp \
         {input.ref} {output.hdf} {output.vcf}
 
         medaka tools annotate --pad 25 {output.vcf} {input.ref} {input.bam} {output.annotated_vcf}

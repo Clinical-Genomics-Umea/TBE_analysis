@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from io import StringIO, _io
+import subprocess
 
 configfile: "config.yaml"
 
@@ -107,6 +109,8 @@ SAMPLE_TO_REF = {
 # -- RULES --- #
 rule all:
     input:
+        # perbase
+        expand(f"{RESULTS}/{{sample}}/PERBASE/{{sample}}_perbase_depth.csv", sample=SAMPLES),
         # bcftools
         expand(f"{RESULTS}/{{sample}}/BCFTOOLS/{{sample}}_consensus.fasta", sample=SAMPLES),
         # vcf
@@ -415,15 +419,56 @@ rule bcftools_consensus:
         ref=lambda wc: SAMPLE_TO_REF[wc.sample],
         vcf=rules.medaka_vcf.output.annotated_vcf,
     output:
-        bgzip=f"{RESULTS}/{{sample}}/BCFTOOLS/{{sample}}_annotated.vcf.gz",
+        filtered=f"{RESULTS}/{{sample}}/MEDAKA/{{sample}}_annotated_filtered.vcf",
+        bgzip=f"{RESULTS}/{{sample}}/BCFTOOLS/{{sample}}_annotated_filtered.vcf.gz",
         consensus=f"{RESULTS}/{{sample}}/BCFTOOLS/{{sample}}_consensus.fasta",
     shell:
         """
-        bgzip -c {input.vcf} > {output.bgzip}
+        bcftools view -i 'GT="0/0" || GT="1/1" && DP>50' {input.vcf} > {output.filtered}
+
+        bgzip -c {output.filtered} > {output.bgzip}
         tabix {output.bgzip} 
         cat {input.ref} | \
         bcftools consensus {output.bgzip} > {output.consensus}
         """
+
+
+rule perbase:
+    input:
+        ref=lambda wc: SAMPLE_TO_REF[wc.sample],
+        bam=rules.minimap2.output.bam,
+    output:
+        csv=f"{RESULTS}/{{sample}}/PERBASE/{{sample}}_perbase_depth.csv",
+    run:
+        def run_perbase(bam: str) -> _io.StringIO:
+            return StringIO(
+                subprocess.check_output(
+                    f"perbase base-depth --keep-zeros {bam}", shell=True, stderr=subprocess.DEVNULL
+                ).decode()
+            )
+
+
+        def wrangle_perbase(perbase: _io.StringIO, ref: str) -> pd.DataFrame:
+            ref = Path(ref).read_text().split("\n")[1].upper()
+            ALTS = ["A", "C", "G", "T"]
+            df = (
+                pd.read_csv(perbase, sep="\t")
+                .drop(columns=["REF", "NEAR_MAX_DEPTH"])
+                .assign(DEPTH=lambda x: x.DEPTH - (x.DEL + x.INS))
+                .assign(max_nt_value=lambda x: [x.iloc[y, 2:].values.max() for y in range(x.shape[0])])
+                .assign(ref=list(ref))
+                .assign(alt=lambda x: [ALTS[x.iloc[y, 2:7].values.argmax()] for y in range(x.shape[0])])
+                .assign(snp=lambda x: np.select([x.alt != x.ref], [1], default=0))
+                .assign(nt_ratio=lambda x: x.max_nt_value / x.DEPTH)
+            )
+            return df
+
+        wrangle_perbase(run_perbase(input.bam), input.ref).to_csv(output.csv, index=False)
+
+
+
+
+
 
 # If viralFlye
 rule viralFlye:

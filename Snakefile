@@ -439,6 +439,7 @@ rule perbase:
         bam=rules.minimap2.output.bam,
     output:
         csv=f"{RESULTS}/{{sample}}/PERBASE/{{sample}}_perbase_depth.csv",
+        hotspots=f"{RESULTS}/{{sample}}/PERBASE/{{sample}}_hotspots.csv",
     run:
         def run_perbase(bam: str) -> _io.StringIO:
             return StringIO(
@@ -463,9 +464,14 @@ rule perbase:
             )
             return df
 
-        wrangle_perbase(run_perbase(input.bam), input.ref).to_csv(output.csv, index=False)
-
-
+        df = wrangle_perbase(run_perbase(input.bam), input.ref)
+        interesting_hotspots = (
+            df
+            .loc[lambda x: (x.nt_ratio > 0.2) & (x.nt_ratio < 0.85)]
+            .loc[lambda x: x.DEPTH > 500]
+        )
+        df.to_csv(output.csv, index=False)
+        interesting_hotspots.to_csv(output.hotspots, index=False)
 
 
 
